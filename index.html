@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Eric's Yacht Party</title>
+  <style>
+    :root {
+      --bg-1: #0b1020;
+      --bg-2: #141b34;
+      --bg-3: #1b2550;
+      --text: #f5f7ff;
+      --muted: #a8b0cc;
+      --accent: #7c5cff;
+      --accent-2: #33d1ff;
+      --accent-3: #ff6fb5;
+      --warning: #ffd166;
+      --success: #8bffb0;
+      --shadow: 0 26px 70px rgba(0,0,0,0.32);
+      --radius-xl: 28px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(124,92,255,0.26), transparent 24%),
+        radial-gradient(circle at top right, rgba(51,209,255,0.18), transparent 24%),
+        radial-gradient(circle at bottom center, rgba(255,111,181,0.14), transparent 28%),
+        linear-gradient(160deg, var(--bg-1), var(--bg-2) 48%, var(--bg-3));
+      padding: 14px;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 28px 28px;
+      opacity: 0.18;
+      mask-image: linear-gradient(to bottom, rgba(0,0,0,0.85), rgba(0,0,0,0.3));
+    }
+
+    .app { max-width: 1180px; margin: 0 auto; position: relative; z-index: 1; }
+    .hero { margin-bottom: 14px; }
+    .hero h1 { margin: 0; font-size: clamp(2rem, 5vw, 3.2rem); line-height: 0.98; letter-spacing: -0.05em; color: #fff; }
+    .winner-banner {
+      margin-top: 10px; border: 1px solid rgba(139,255,176,0.22);
+      background: linear-gradient(135deg, rgba(124,92,255,0.18), rgba(139,255,176,0.12));
+      border-radius: 18px; padding: 14px 16px; display: none; gap: 14px; align-items: center; flex-wrap: wrap;
+    }
+    .winner-banner.show { display: flex; }
+    .winner-rankings { color: var(--muted); font-size: 0.95rem; }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      overflow: hidden;
+    }
+    .section { padding: 16px; }
+    .section + .section { border-top: 1px solid rgba(255,255,255,0.08); }
+    .eyebrow { font-size: 0.78rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-2); margin-bottom: 8px; font-weight: 800; }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: minmax(240px, 380px) auto;
+      gap: 12px;
+      align-items: center;
+    }
+    .dice-input-wrap { position: relative; }
+    .dice-input {
+      width: 100%; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.06);
+      color: transparent; caret-color: var(--text); padding: 16px 18px; font: inherit; font-size: 1.15rem; letter-spacing: 0.42em;
+      outline: none; box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); position: relative; z-index: 2;
+    }
+    .dice-input:focus { border-color: rgba(124,92,255,0.55); box-shadow: 0 0 0 4px rgba(124,92,255,0.18); }
+    .dice-input:disabled { opacity: 0.55; cursor: not-allowed; }
+    .dice-preview {
+      position: absolute; inset: 0; display: flex; align-items: center; padding: 0 18px; pointer-events: none;
+      color: var(--text); font-size: 1.15rem; letter-spacing: 0.42em; z-index: 1; white-space: pre;
+    }
+    .dice-preview.empty { color: #9ea7c7; letter-spacing: 0.02em; }
+
+    .turn-strip {
+      display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: flex-start;
+    }
+    .turn-chip {
+      border-radius: 999px; padding: 10px 14px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
+      font-size: 0.96rem; font-weight: 700;
+    }
+    .turn-chip.active {
+      background: rgba(124,92,255,0.22); border-color: rgba(124,92,255,0.45); color: #fff;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(8,12,24,0.18);
+      -webkit-overflow-scrolling: touch;
+    }
+    table { width: 100%; min-width: 760px; border-collapse: collapse; background: transparent; }
+    th, td {
+      padding: 13px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      text-align: left;
+      font-size: 1rem;
+      vertical-align: middle;
+    }
+    th {
+      color: var(--muted);
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      background: rgba(255,255,255,0.04);
+      position: sticky;
+      top: 0;
+      z-index: 3;
+    }
+    th:first-child, td:first-child {
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      background: rgba(15,20,39,0.96);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      min-width: 180px;
+      width: 180px;
+      max-width: 180px;
+    }
+    th:first-child { z-index: 4; }
+    tbody tr:last-child td { border-bottom: 0; }
+
+    .cell-active {
+      background: rgba(124,92,255,0.16);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), inset 0 -1px 0 rgba(255,255,255,0.05);
+    }
+    th.cell-active-head {
+      color: #fff;
+      background: rgba(124,92,255,0.3);
+      box-shadow: inset 0 -4px 0 rgba(51,209,255,0.95);
+    }
+    .best-row .cell-active {
+      box-shadow: inset 5px 0 0 rgba(51,209,255,0.95);
+    }
+
+    .score-pill {
+      display: inline-flex; align-items: center; justify-content: center; min-width: 58px;
+      padding: 9px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.08); font-weight: 800; color: #fff; font-size: 1rem;
+    }
+    .score-pill.open {
+      background: rgba(255,255,255,0.94);
+      color: #17203f;
+      border-color: rgba(255,255,255,0.95);
+      cursor: pointer;
+      box-shadow: 0 6px 14px rgba(0,0,0,0.12);
+    }
+    .score-pill.locked { background: rgba(51,209,255,0.18); color: #ffffff; }
+    .score-pill.empty { background: rgba(255,255,255,0.06); color: var(--muted); min-width: 58px; }
+    .score-pill.best { background: #ffd166; color: #1a1730; border-color: rgba(255,209,102,0.95); }
+
+    .category-label { display: flex; align-items: center; gap: 8px; font-weight: 700; min-width: 0; }
+    .cat-icon {
+      width: 28px; height: 28px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.08); font-size: 0.86rem; flex: 0 0 auto;
+    }
+    .subnote { display: block; margin-top: 3px; font-size: 0.74rem; color: var(--muted); font-weight: 500; line-height: 1.25; }
+
+    .status {
+      margin-top: 12px; padding: 13px 15px; border-radius: 16px; background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.08); color: #f4f7ff; min-height: 54px; display: flex; align-items: center;
+      font-size: 1rem;
+    }
+    .status.warning { background: rgba(255,209,102,0.14); border-color: rgba(255,209,102,0.18); color: #fff6d5; }
+
+    .footer-bar {
+      margin-top: 12px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .totals-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      flex: 1;
+      min-width: 280px;
+    }
+    .player-total-card {
+      border-radius: 16px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #fff;
+      text-align: center;
+    }
+    .player-total-card.active {
+      background: rgba(124,92,255,0.22);
+      border-color: rgba(124,92,255,0.38);
+      box-shadow: 0 0 0 1px rgba(51,209,255,0.28);
+    }
+    .player-total-name {
+      font-size: 0.76rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .player-total-value {
+      font-size: 1.15rem;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+    }
+    .btn {
+      border: 0; cursor: pointer; font: inherit; border-radius: 12px; padding: 11px 15px; font-weight: 800; min-height: 46px;
+      transition: transform 0.16s ease, filter 0.16s ease, opacity 0.16s ease;
+    }
+    .btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
+    .btn:active { transform: translateY(0); }
+    .btn-secondary { background: rgba(255,255,255,0.07); color: var(--text); border: 1px solid rgba(255,255,255,0.1); }
+    .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent-3)); color: #fff; box-shadow: 0 12px 28px rgba(124,92,255,0.34); }
+    .btn[disabled] { opacity: 0.48; cursor: not-allowed; transform: none; filter: none; }
+
+    .overlay {
+      position: fixed; inset: 0; background: rgba(5,8,18,0.74); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 40;
+    }
+    .setup-card {
+      width: min(560px, 100%); border: 1px solid rgba(255,255,255,0.12); border-radius: 28px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.1), rgba(255,255,255,0.04)); box-shadow: var(--shadow); padding: 20px;
+    }
+    .setup-title { margin: 0; font-size: clamp(1.6rem, 4vw, 2.2rem); letter-spacing: -0.04em; }
+    .setup-help { margin: 8px 0 0; color: var(--muted); line-height: 1.5; }
+    .name-list { display: grid; gap: 10px; margin-top: 16px; }
+    .name-row { display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; align-items: center; }
+    .name-index {
+      width: 32px; height: 32px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.08); color: var(--muted); font-size: 0.84rem; font-weight: 800;
+    }
+    .name-input { width: 100%; border-radius: 14px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.06); color: var(--text); padding: 13px 14px; font: inherit; outline: none; }
+    .name-input:focus { border-color: rgba(124,92,255,0.55); box-shadow: 0 0 0 4px rgba(124,92,255,0.18); }
+    .icon-btn { width: 40px; height: 40px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.07); color: var(--text); cursor: pointer; font: inherit; font-size: 1rem; }
+    .setup-actions { display: flex; justify-content: space-between; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 16px; }
+    .mini-note { color: var(--muted); font-size: 0.82rem; }
+
+    .confetti-layer { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 50; }
+    .confetti { position: absolute; top: -12px; width: 10px; height: 16px; border-radius: 999px; opacity: 0.9; animation: confettiFall 1400ms linear forwards; }
+    @keyframes confettiFall { from { transform: translateY(0) rotate(0deg); opacity: 1; } to { transform: translateY(110vh) rotate(540deg); opacity: 0; } }
+
+    @media (max-width: 900px) {
+      .input-row { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 760px) {
+      body { padding: 10px; }
+      .section { padding: 12px; }
+      th, td { padding: 10px 8px; font-size: 0.92rem; }
+      th { font-size: 0.78rem; }
+      th:first-child, td:first-child { min-width: 132px; width: 132px; max-width: 132px; }
+      .score-pill { min-width: 46px; padding: 8px 8px; font-size: 0.88rem; }
+      .score-pill.empty { min-width: 46px; }
+      .cat-icon { width: 22px; height: 22px; font-size: 0.72rem; border-radius: 7px; }
+      .category-label { gap: 6px; }
+      .subnote { font-size: 0.66rem; }
+      table { min-width: 640px; }
+      .name-row { grid-template-columns: 28px 1fr auto; gap: 8px; }
+      .totals-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+      .player-total-value { font-size: 1.02rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="confetti-layer" id="confettiLayer"></div>
+
+  <div class="overlay" id="setupOverlay">
+    <div class="setup-card">
+      <div class="eyebrow">Game setup</div>
+      <h2 class="setup-title">Add players first</h2>
+      <p class="setup-help">Enter each player name, then start the shared scoreboard.</p>
+      <div class="name-list" id="nameList"></div>
+      <div class="setup-actions">
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-secondary" id="addPlayerBtn">+ Add Player</button>
+          <button class="btn btn-primary" id="startGameBtn">Start Game</button>
+        </div>
+        <div class="mini-note">Best with 3 to 4 players.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app">
+    <header class="hero">
+      <h1>Eric's Yacht Party</h1>
+      <div class="winner-banner" id="winnerBanner">
+        <div style="font-size:1.6rem;">🏆</div>
+        <div>
+          <div style="font-weight:900; font-size:1.05rem;" id="winnerTitle">Winner</div>
+          <div class="winner-rankings" id="winnerRankings"></div>
+        </div>
+      </div>
+    </header>
+
+    <main class="panel">
+      <section class="section">
+        <div class="eyebrow">Enter player dice</div>
+        <div class="input-row">
+          <div class="dice-input-wrap">
+            <div class="dice-preview empty" id="dicePreview">Enter 5 dice, e.g. 12345</div>
+            <input id="diceInput" class="dice-input" type="text" inputmode="numeric" maxlength="5" autocomplete="off" />
+          </div>
+          <div class="turn-strip">
+            <div class="turn-chip" id="roundChip">Round —</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr id="scoreHeadRow"></tr>
+            </thead>
+            <tbody id="scoreTableBody"></tbody>
+          </table>
+        </div>
+
+        <div class="footer-bar">
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button id="undoBtn" class="btn btn-secondary" disabled>Undo Last</button>
+            <button id="editPlayersBtn" class="btn btn-secondary">Edit Players</button>
+            <button id="newGameBtn" class="btn btn-secondary">New Game</button>
+          </div>
+          <div class="totals-bar" id="totalsBar"></div>
+        </div>
+
+        <div class="status" id="statusBox">Add players to begin.</div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const categories = [
+      { key: 'aces', label: 'Aces', shortLabel: 'Aces', icon: '✨', section: 'upper' },
+      { key: 'deuces', label: 'Deuces', shortLabel: '2s', icon: '🎈', section: 'upper' },
+      { key: 'threes', label: 'Threes', shortLabel: '3s', icon: '🌈', section: 'upper' },
+      { key: 'fours', label: 'Fours', shortLabel: '4s', icon: '⚡', section: 'upper' },
+      { key: 'fives', label: 'Fives', shortLabel: '5s', icon: '💎', section: 'upper' },
+      { key: 'sixes', label: 'Sixes', shortLabel: '6s', icon: '🔥', section: 'upper' },
+      { key: 'choice', label: 'Choice', shortLabel: 'Choice', icon: '🧮', section: 'lower' },
+      { key: 'fourKind', label: '4 of a Kind', shortLabel: '4 Kind', icon: '🎯', section: 'lower' },
+      { key: 'fullHouse', label: 'Full House', shortLabel: 'Full', icon: '🏠', section: 'lower' },
+      { key: 'smallStraight', label: 'Small Straight (15 pts)', shortLabel: 'S Str 15', icon: '📈', section: 'lower' },
+      { key: 'largeStraight', label: 'Large Straight (30 pts)', shortLabel: 'L Str 30', icon: '🚀', section: 'lower' },
+      { key: 'yacht', label: 'Yacht (50 pts)', shortLabel: 'Yacht 50', icon: '🎉', section: 'lower' }
+    ];
+
+    const STORAGE_KEY = 'erics_yacht_party_state_v3';
+    let dice = [];
+    let players = [];
+    let activePlayerIndex = 0;
+    let lastMove = null;
+    let setupDraftNames = ['Player 1', 'Player 2'];
+
+    const setupOverlay = document.getElementById('setupOverlay');
+    const nameList = document.getElementById('nameList');
+    const scoreHeadRow = document.getElementById('scoreHeadRow');
+    const scoreTableBody = document.getElementById('scoreTableBody');
+    const statusBox = document.getElementById('statusBox');
+    const diceInput = document.getElementById('diceInput');
+    const dicePreview = document.getElementById('dicePreview');
+    const undoBtn = document.getElementById('undoBtn');
+    const confettiLayer = document.getElementById('confettiLayer');
+    const winnerBanner = document.getElementById('winnerBanner');
+    const winnerTitle = document.getElementById('winnerTitle');
+    const winnerRankings = document.getElementById('winnerRankings');
+    const roundChip = document.getElementById('roundChip');
+    const totalsBar = document.getElementById('totalsBar');
+
+    function blankScores() { return Object.fromEntries(categories.map(c => [c.key, null])); }
+    function countMap(arr) { return arr.reduce((acc, value) => { acc[value] = (acc[value] || 0) + 1; return acc; }, {}); }
+    const sum = arr => arr.reduce((a, b) => a + b, 0);
+    const uniqueSorted = arr => [...new Set(arr)].sort((a, b) => a - b);
+    function hasRun(arr, neededLength) {
+      const uniq = uniqueSorted(arr); let streak = 1;
+      for (let i = 1; i < uniq.length; i++) {
+        if (uniq[i] === uniq[i - 1] + 1) { streak++; if (streak >= neededLength) return true; }
+        else { streak = 1; }
+      }
+      return false;
+    }
+    function scoreForCategory(key, arr) {
+      const counts = Object.values(countMap(arr)).sort((a, b) => b - a);
+      const total = sum(arr);
+      switch (key) {
+        case 'aces': return arr.filter(v => v === 1).length * 1;
+        case 'deuces': return arr.filter(v => v === 2).length * 2;
+        case 'threes': return arr.filter(v => v === 3).length * 3;
+        case 'fours': return arr.filter(v => v === 4).length * 4;
+        case 'fives': return arr.filter(v => v === 5).length * 5;
+        case 'sixes': return arr.filter(v => v === 6).length * 6;
+        case 'choice': return total;
+        case 'fourKind': return counts[0] >= 4 ? total : 0;
+        case 'fullHouse': return counts[0] === 3 && counts[1] === 2 ? total : 0;
+        case 'smallStraight': return hasRun(arr, 4) ? 15 : 0;
+        case 'largeStraight': return hasRun(arr, 5) ? 30 : 0;
+        case 'yacht': return counts[0] === 5 ? 50 : 0;
+        default: return 0;
+      }
+    }
+    function totalsFor(player) {
+      const upperKeys = ['aces', 'deuces', 'threes', 'fours', 'fives', 'sixes'];
+      const upper = upperKeys.reduce((t, key) => t + (player.scores[key] ?? 0), 0);
+      const bonus = upper >= 63 ? 35 : 0;
+      const lower = categories.filter(c => c.section === 'lower').reduce((t, c) => t + (player.scores[c.key] ?? 0), 0);
+      return { upper, bonus, lower, grand: upper + bonus + lower };
+    }
+    const activePlayer = () => players[activePlayerIndex];
+    const hasValidDice = () => dice.length === 5;
+    const isPlayerFinished = player => Object.values(player.scores).every(v => v !== null);
+    const allPlayersFinished = () => players.length > 0 && players.every(isPlayerFinished);
+    const rankings = () => [...players].map((p, i) => ({ index: i, name: p.name, total: totalsFor(p).grand })).sort((a, b) => b.total - a.total);
+    function currentRound() {
+      if (!players.length) return 1;
+      const minScored = Math.min(...players.map(p => Object.values(p.scores).filter(v => v !== null).length));
+      return Math.min(minScored + 1, categories.length);
+    }
+    function nextAvailablePlayerIndex(startIndex = activePlayerIndex) {
+      if (!players.length) return 0;
+      for (let step = 1; step <= players.length; step++) {
+        const idx = (startIndex + step) % players.length;
+        if (!isPlayerFinished(players[idx])) return idx;
+      }
+      return startIndex;
+    }
+    function sanitizeInput(value) { return value.replace(/[^1-6]/g, '').slice(0, 5); }
+    function hasPendingEnteredDice() { return sanitizeInput(diceInput.value).length > 0 || hasValidDice(); }
+    function calculatePossibleScores() {
+      if (!hasValidDice()) return {};
+      return Object.fromEntries(categories.map(cat => [cat.key, scoreForCategory(cat.key, dice)]));
+    }
+    function setStatus(message, mode = 'normal') {
+      statusBox.textContent = message;
+      statusBox.className = mode === 'warning' ? 'status warning' : 'status';
+    }
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ players, activePlayerIndex, lastMove, dice, setupDraftNames, diceInputValue: diceInput.value, overlayVisible: setupOverlay.style.display !== 'none' }));
+    }
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return false;
+        const state = JSON.parse(raw);
+        players = Array.isArray(state.players) ? state.players : [];
+        activePlayerIndex = typeof state.activePlayerIndex === 'number' ? state.activePlayerIndex : 0;
+        lastMove = state.lastMove || null;
+        dice = Array.isArray(state.dice) ? state.dice : [];
+        setupDraftNames = Array.isArray(state.setupDraftNames) && state.setupDraftNames.length ? state.setupDraftNames : ['Player 1', 'Player 2'];
+        renderSetupRows(setupDraftNames);
+        diceInput.value = state.diceInputValue || '';
+        updateInputPreview();
+        setupOverlay.style.display = state.overlayVisible === false && players.length >= 2 ? 'none' : 'flex';
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    function updateInputPreview() {
+      const raw = sanitizeInput(diceInput.value);
+      diceInput.value = raw;
+      if (!raw) {
+        dicePreview.textContent = 'Enter 5 dice, e.g. 12345';
+        dicePreview.className = 'dice-preview empty';
+      } else {
+        dicePreview.textContent = raw.split('').join(' ');
+        dicePreview.className = 'dice-preview';
+      }
+    }
+    function clearDiceEntry() {
+      dice = [];
+      diceInput.value = '';
+      updateInputPreview();
+      requestAnimationFrame(() => diceInput.focus());
+    }
+    function renderSetupRows(names = ['Player 1', 'Player 2']) {
+      nameList.innerHTML = '';
+      names.forEach((name, index) => {
+        const row = document.createElement('div');
+        row.className = 'name-row';
+        row.innerHTML = `
+          <div class="name-index">${index + 1}</div>
+          <input class="name-input" type="text" maxlength="18" value="${name}" placeholder="Player ${index + 1}" />
+          <button class="icon-btn" type="button" aria-label="Remove player">✕</button>
+        `;
+        row.querySelector('button').addEventListener('click', () => {
+          if (nameList.children.length <= 2) return;
+          row.remove();
+          refreshSetupIndexes();
+        });
+        nameList.appendChild(row);
+      });
+    }
+    function refreshSetupIndexes() {
+      [...nameList.children].forEach((row, index) => {
+        row.querySelector('.name-index').textContent = index + 1;
+        row.querySelector('.name-input').placeholder = `Player ${index + 1}`;
+      });
+    }
+    function collectSetupPlayers() {
+      return [...nameList.querySelectorAll('.name-input')].map((input, index) => input.value.trim() || `Player ${index + 1}`).slice(0, 8);
+    }
+    function buildPlayers(names) {
+      players = names.map(name => ({ name, scores: blankScores() }));
+      activePlayerIndex = 0;
+      lastMove = null;
+      clearDiceEntry();
+      renderAll();
+      setStatus('Enter five dice to score the highlighted player column.', 'normal')
+      saveState();
+    }
+    function renderMeta() {
+      const player = activePlayer();
+      if (!player) {
+        roundChip.textContent = 'Round —';
+        undoBtn.disabled = true;
+        return;
+      }
+      roundChip.textContent = `Round ${currentRound()} / ${categories.length}`;
+      undoBtn.disabled = !lastMove;
+    }
+
+    function renderTotalsBar() {
+      totalsBar.innerHTML = '';
+      players.forEach((player, index) => {
+        const totals = totalsFor(player);
+        const card = document.createElement('div');
+        card.className = 'player-total-card' + (index === activePlayerIndex ? ' active' : '');
+        card.innerHTML = `
+          <div class="player-total-name">${player.name}</div>
+          <div class="player-total-value">${totals.grand}</div>
+        `;
+        totalsBar.appendChild(card);
+      });
+    }
+    function triggerConfetti() {
+      const colors = ['#7c5cff', '#33d1ff', '#ff6fb5', '#ffd166', '#8bffb0'];
+      for (let i = 0; i < 24; i++) {
+        const bit = document.createElement('span');
+        bit.className = 'confetti';
+        bit.style.left = `${Math.random() * 100}%`;
+        bit.style.background = colors[i % colors.length];
+        bit.style.animationDelay = `${Math.random() * 180}ms`;
+        confettiLayer.appendChild(bit);
+        setTimeout(() => bit.remove(), 1600);
+      }
+    }
+    function applyDiceFromInput() {
+      const raw = sanitizeInput(diceInput.value.trim());
+      diceInput.value = raw;
+      updateInputPreview();
+      if (raw.length !== 5) {
+        setStatus('Please enter exactly 5 digits using only numbers 1 to 6.', 'warning');
+        return false;
+      }
+      dice = raw.split('').map(Number);
+      renderAll();
+      setStatus(`Dice ready for ${activePlayer().name}. Tap a score in their column.`, 'normal');
+      saveState();
+      return true;
+    }
+    function nextPlayer() {
+      if (allPlayersFinished()) return;
+      activePlayerIndex = nextAvailablePlayerIndex(activePlayerIndex);
+    }
+    function renderScoreHead() {
+      scoreHeadRow.innerHTML = '';
+      const first = document.createElement('th');
+      first.textContent = 'Category';
+      scoreHeadRow.appendChild(first);
+      players.forEach((player, index) => {
+        const th = document.createElement('th');
+        th.textContent = player.name;
+        if (index === activePlayerIndex) th.classList.add('cell-active-head');
+        scoreHeadRow.appendChild(th);
+      });
+    }
+    function renderScoreTable() {
+      scoreTableBody.innerHTML = '';
+      renderScoreHead();
+      if (!players.length) return;
+      const currentPlayer = activePlayer();
+      const possible = calculatePossibleScores();
+      const canScore = hasValidDice();
+      const openEntries = categories.filter(cat => currentPlayer.scores[cat.key] === null).map(cat => ({ key: cat.key, value: canScore ? possible[cat.key] : null }));
+      const bestEntry = canScore ? openEntries.reduce((best, entry) => {
+        if (entry.value === null) return best;
+        if (!best || entry.value > best.value) return entry;
+        return best;
+      }, null) : null;
+      const rowOrder = ['aces','deuces','threes','fours','fives','sixes','upperSubtotal','choice','fourKind','fullHouse','smallStraight','largeStraight','yacht'];
+      rowOrder.forEach(key => {
+        const tr = document.createElement('tr');
+        if (bestEntry && bestEntry.key === key) tr.classList.add('best-row');
+        if (key === 'upperSubtotal') {
+          const firstCell = document.createElement('td');
+          firstCell.innerHTML = `<div class="category-label"><span class="cat-icon">🏆</span><span>Upper subtotal</span></div><span class="subnote">Bonus +35 if 1–6 are over 63 points</span>`;
+          tr.appendChild(firstCell);
+          players.forEach((player, index) => {
+            const totals = totalsFor(player);
+            const td = document.createElement('td');
+            if (index === activePlayerIndex) td.classList.add('cell-active');
+            td.innerHTML = `<span class="score-pill locked">${totals.upper} / 63${totals.bonus ? ' +35' : ''}</span>`;
+            tr.appendChild(td);
+          });
+          scoreTableBody.appendChild(tr);
+          return;
+        }
+        const cat = categories.find(c => c.key === key);
+        const firstCell = document.createElement('td');
+        firstCell.innerHTML = `<div class="category-label"><span class="cat-icon">${cat.icon}</span><span>${cat.label}</span></div>`;
+        tr.appendChild(firstCell);
+        players.forEach((player, playerIndex) => {
+          const td = document.createElement('td');
+          if (playerIndex === activePlayerIndex) td.classList.add('cell-active');
+          const locked = player.scores[cat.key];
+          if (locked !== null) {
+            td.innerHTML = `<span class="score-pill locked">${locked}</span>`;
+          } else if (playerIndex === activePlayerIndex && canScore) {
+            const value = possible[cat.key];
+            const bestClass = bestEntry && bestEntry.key === cat.key && bestEntry.value > 0 ? ' best' : '';
+            const btn = document.createElement('button');
+            btn.className = `score-pill open${bestClass}`;
+            btn.textContent = value;
+            btn.addEventListener('click', () => {
+              lastMove = { playerIndex, key: cat.key, dice: [...dice] };
+              player.scores[cat.key] = value;
+              const totals = totalsFor(player);
+              const celebrate = cat.key === 'yacht' || cat.key === 'largeStraight' || cat.key === 'smallStraight' || value >= 25 || totals.bonus > 0;
+              const playerName = player.name;
+              if (!allPlayersFinished()) nextPlayer();
+              clearDiceEntry();
+              renderAll();
+              if (celebrate) triggerConfetti();
+              if (allPlayersFinished()) {
+                const ranked = rankings();
+                winnerTitle.textContent = `${ranked[0].name} wins with ${ranked[0].total}!`;
+                winnerRankings.textContent = ranked.map((r, i) => `${i + 1}. ${r.name} ${r.total}`).join(' • ');
+                winnerBanner.classList.add('show');
+                diceInput.disabled = true;
+                setStatus(`${playerName} locked ${cat.label} for ${value}. Game complete.`, 'normal');
+              } else {
+                winnerBanner.classList.remove('show');
+                diceInput.disabled = false;
+                setStatus(`${playerName} locked ${cat.label} for ${value}. ${activePlayer().name} is up next.`, 'normal');
+              }
+              saveState();
+            });
+            td.appendChild(btn);
+          } else {
+            td.innerHTML = `<span class="score-pill empty">—</span>`;
+          }
+          tr.appendChild(td);
+        });
+        scoreTableBody.appendChild(tr);
+      });
+    }
+    function renderAll() {
+      renderMeta();
+      renderScoreTable();
+      renderTotalsBar();
+      if (allPlayersFinished()) {
+        const ranked = rankings();
+        if (ranked.length) {
+          winnerTitle.textContent = `${ranked[0].name} wins with ${ranked[0].total}!`;
+          winnerRankings.textContent = ranked.map((r, i) => `${i + 1}. ${r.name} ${r.total}`).join(' • ');
+          winnerBanner.classList.add('show');
+          diceInput.disabled = true;
+        }
+      } else {
+        winnerBanner.classList.remove('show');
+        diceInput.disabled = false;
+      }
+    }
+
+    document.getElementById('addPlayerBtn').addEventListener('click', () => {
+      if (nameList.children.length >= 8) return;
+      const row = document.createElement('div');
+      row.className = 'name-row';
+      const next = nameList.children.length + 1;
+      row.innerHTML = `<div class="name-index">${next}</div><input class="name-input" type="text" maxlength="18" value="" placeholder="Player ${next}" /><button class="icon-btn" type="button" aria-label="Remove player">✕</button>`;
+      row.querySelector('button').addEventListener('click', () => {
+        if (nameList.children.length <= 2) return;
+        row.remove();
+        refreshSetupIndexes();
+      });
+      nameList.appendChild(row);
+      row.querySelector('input').focus();
+    });
+    document.getElementById('startGameBtn').addEventListener('click', () => {
+      const names = collectSetupPlayers();
+      if (names.length < 2) {
+        setStatus('Add at least two players.', 'warning');
+        return;
+      }
+      setupDraftNames = [...names];
+      buildPlayers(names);
+      setupOverlay.style.display = 'none';
+      saveState();
+    });
+    document.getElementById('editPlayersBtn').addEventListener('click', () => {
+      const names = players.length ? players.map(p => p.name) : ['Player 1', 'Player 2'];
+      setupDraftNames = [...names];
+      renderSetupRows(names);
+      setupOverlay.style.display = 'flex';
+      saveState();
+    });
+    document.getElementById('newGameBtn').addEventListener('click', () => {
+      if (!players.length) return;
+      if (!window.confirm('Start a new game and clear all scores?')) return;
+      buildPlayers(players.map(p => p.name));
+      winnerBanner.classList.remove('show');
+      diceInput.disabled = false;
+      setStatus(`${activePlayer().name} starts. Enter five dice.`, 'normal');
+      saveState();
+    });
+    undoBtn.addEventListener('click', () => {
+      if (!lastMove) return;
+      players[lastMove.playerIndex].scores[lastMove.key] = null;
+      activePlayerIndex = lastMove.playerIndex;
+      dice = [...lastMove.dice];
+      diceInput.value = dice.join('');
+      lastMove = null;
+      updateInputPreview();
+      renderAll();
+      requestAnimationFrame(() => diceInput.focus());
+      setStatus('Last move undone. Choose a different score for the active player.', 'normal');
+      saveState();
+    });
+    diceInput.addEventListener('input', () => {
+      updateInputPreview();
+      const raw = sanitizeInput(diceInput.value);
+      if (raw.length === 5) applyDiceFromInput();
+      else if (!raw.length) {
+        dice = [];
+        renderAll();
+        if (players.length && !allPlayersFinished()) setStatus(`${activePlayer().name} is active. Enter five dice.`, 'normal');
+        saveState();
+      } else {
+        saveState();
+      }
+    });
+    diceInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') applyDiceFromInput();
+    });
+
+    if (!loadState()) renderSetupRows();
+    updateInputPreview();
+    renderAll();
+    if (players.length >= 2 && setupOverlay.style.display === 'none') {
+      setStatus(allPlayersFinished() ? 'Game complete.' : 'Enter five dice to score the highlighted player column.', 'normal');
+    }
+  </script>
+</body>
+</html>
